@@ -1,11 +1,11 @@
 use super::derivation_tree::Node;
-use super::grammar::Grammar;
+use super::grammar::{Expansion, Grammar, Symbol};
 use super::shared::{max_idx, min_idx};
 use rand::Rng;
 
-pub trait Strategy {
+pub trait Strategy<T> {
     fn cont(&self, dt_root: &Node, num_steps: usize) -> bool;
-    fn choose<'a>(&self, grammar: &'a Grammar, node: &Node) -> Option<&'a str>;
+    fn choose<'a>(&self, grammar: &Grammar<'a, T>, node: &Node) -> Option<Symbol<'a>>;
 }
 
 // -------------------------------- Random ------------------------------------
@@ -24,18 +24,18 @@ impl RandomStrategy {
     }
 }
 
-impl Strategy for RandomStrategy {
+impl<T> Strategy<T> for RandomStrategy {
     fn cont(&self, dt_root: &Node, num_steps: usize) -> bool {
         dt_root.num_possible_expansions() < self.nonterminals_threshold
             && num_steps < self.max_steps
     }
 
-    fn choose<'a>(&self, grammar: &'a Grammar, node: &Node) -> Option<&'a str> {
+    fn choose<'a>(&self, grammar: &Grammar<'a, T>, node: &Node) -> Option<Symbol<'a>> {
         match node {
             Node::N(sym) => {
-                let expansions = &grammar[&sym[..]];
+                let expansions = &grammar[*sym];
                 let rand_idx = rand::thread_rng().gen_range(0, expansions.len());
-                let choosen_expansion = expansions[rand_idx];
+                let choosen_expansion = expansions[rand_idx].symbol;
                 Some(choosen_expansion)
             }
             _ => None,
@@ -59,19 +59,19 @@ impl GrowthStrategy {
     }
 }
 
-impl Strategy for GrowthStrategy {
+impl<T> Strategy<T> for GrowthStrategy {
     fn cont(&self, dt_root: &Node, num_steps: usize) -> bool {
         dt_root.num_possible_expansions() < self.nonterminals_threshold
             && num_steps < self.max_steps
     }
 
-    fn choose<'a>(&self, grammar: &'a Grammar, node: &Node) -> Option<&'a str> {
+    fn choose<'a>(&self, grammar: &Grammar<'a, T>, node: &Node) -> Option<Symbol<'a>> {
         match node {
             Node::N(sym) => {
-                let expansions = &grammar[&sym[..]];
+                let expansions = &grammar[*sym];
                 let costs = costs(grammar, sym, expansions);
                 let max_idx = max_idx(&costs);
-                let choosen_expansion = expansions[max_idx];
+                let choosen_expansion = expansions[max_idx].symbol;
                 Some(choosen_expansion)
             }
             _ => None,
@@ -89,18 +89,18 @@ impl CloseStrategy {
     }
 }
 
-impl Strategy for CloseStrategy {
+impl<T> Strategy<T> for CloseStrategy {
     fn cont(&self, _dt_root: &Node, _num_steps: usize) -> bool {
         true
     }
 
-    fn choose<'a>(&self, grammar: &'a Grammar, node: &Node) -> Option<&'a str> {
+    fn choose<'a>(&self, grammar: &Grammar<'a, T>, node: &Node) -> Option<Symbol<'a>> {
         match node {
             Node::N(sym) => {
-                let expansions = &grammar[&sym[..]];
+                let expansions = &grammar[*sym];
                 let costs = costs(grammar, sym, expansions);
                 let min_idx = min_idx(&costs);
-                let choosen_expansion = expansions[min_idx];
+                let choosen_expansion = expansions[min_idx].symbol;
                 Some(choosen_expansion)
             }
             _ => None,
@@ -110,7 +110,7 @@ impl Strategy for CloseStrategy {
 
 // ---------------------------------- Helpers ---------------------------------
 
-fn costs(grammar: &Grammar, sym: &str, expansions: &Vec<&str>) -> Vec<f64> {
+fn costs<T>(grammar: &Grammar<T>, sym: Symbol, expansions: &Vec<Expansion<T>>) -> Vec<f64> {
     let seen = [sym].iter().cloned().collect();
     expansions
         .iter()

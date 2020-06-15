@@ -5,18 +5,18 @@ use std::cell::RefCell;
 use std::ops::Deref;
 
 #[derive(Debug)]
-pub enum Node {
-    T(String),
-    N(String),
-    EN(String, Children),
+pub enum Node<'a> {
+    T(&'a str),
+    N(&'a str),
+    EN(&'a str, Children<'a>),
 }
 
 #[derive(Debug)]
-pub struct Children {
-    pub roots: Vec<RefCell<Node>>,
+pub struct Children<'a> {
+    pub roots: Vec<RefCell<Node<'a>>>,
 }
 
-impl std::fmt::Display for Node {
+impl<'a> std::fmt::Display for Node<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match &self {
             Node::T(sym) => write!(f, "{}", sym),
@@ -31,27 +31,27 @@ impl std::fmt::Display for Node {
     }
 }
 
-impl Deref for Children {
-    type Target = Vec<RefCell<Node>>;
+impl<'a> Deref for Children<'a> {
+    type Target = Vec<RefCell<Node<'a>>>;
 
     fn deref(&self) -> &Self::Target {
         &self.roots
     }
 }
 
-impl Children {
-    pub fn epsilon() -> Self {
+impl<'a> Children<'a> {
+    pub fn new_terminal(symbol: &'a str) -> Self {
         Children {
-            roots: vec![RefCell::new(Node::new_terminal(""))],
+            roots: vec![RefCell::new(Node::new_terminal(symbol))],
         }
     }
 }
 
-impl From<&str> for Children {
-    fn from(expansion: &str) -> Self {
+impl<'a> From<&'a str> for Children<'a> {
+    fn from(expansion: &'a str) -> Self {
         let tokens = parser::tokens(expansion);
         if tokens.is_empty() {
-            return Children::epsilon();
+            return Children::new_terminal("");
         }
 
         let roots = tokens
@@ -67,17 +67,17 @@ impl From<&str> for Children {
     }
 }
 
-impl Node {
-    pub fn new_nonterminal(sym: &str) -> Self {
-        Node::N(sym.to_owned())
+impl<'a> Node<'a> {
+    pub fn new_nonterminal(sym: &'a str) -> Self {
+        Node::N(sym)
     }
 
-    pub fn new_terminal(sym: &str) -> Self {
-        Node::T(sym.to_owned())
+    pub fn new_terminal(sym: &'a str) -> Self {
+        Node::T(sym)
     }
 
-    pub fn new_expanded(sym: &str, children: Children) -> Self {
-        Node::EN(sym.to_owned(), children)
+    pub fn new_expanded(sym: &'a str, children: Children<'a>) -> Self {
+        Node::EN(sym, children)
     }
 
     pub fn any_possible_expansions(&self) -> bool {

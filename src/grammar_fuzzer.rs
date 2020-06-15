@@ -5,17 +5,17 @@ use super::grammar::Grammar;
 use super::shared::random_element;
 use super::strategy::Strategy;
 
-pub struct GrammarFuzzer<'a> {
-    grammar: Grammar<'a>,
-    steps: &'a Vec<&'a dyn Strategy>,
+pub struct GrammarFuzzer<'a, T> {
+    grammar: Grammar<'a, T>,
+    steps: &'a Vec<&'a dyn Strategy<T>>,
 }
 
-impl<'a> GrammarFuzzer<'a> {
-    pub fn new(grammar: Grammar<'a>, steps: &'a Vec<&'a dyn Strategy>) -> GrammarFuzzer<'a> {
+impl<'a, T> GrammarFuzzer<'a, T> {
+    pub fn new(grammar: Grammar<'a, T>, steps: &'a Vec<&'a dyn Strategy<T>>) -> Self {
         GrammarFuzzer { grammar, steps }
     }
 
-    fn expand_nonterminal(&self, node: &Node, strategy: &dyn Strategy) -> Children {
+    fn expand_nonterminal(&self, node: &Node<'a>, strategy: &dyn Strategy<T>) -> Children<'a> {
         match node {
             Node::N(_) => {
                 let chosen_expantion = strategy.choose(&self.grammar, &node).unwrap();
@@ -26,11 +26,11 @@ impl<'a> GrammarFuzzer<'a> {
         }
     }
 
-    fn expand_tree_once(&self, node: &mut Node, strategy: &dyn Strategy) {
+    fn expand_tree_once(&self, node: &mut Node<'a>, strategy: &dyn Strategy<T>) {
         match node {
             Node::T(_) => (),
             Node::N(sym) => {
-                let children = self.expand_nonterminal(&Node::N(sym.to_owned()), strategy);
+                let children = self.expand_nonterminal(&Node::N(sym), strategy);
                 let new_subtree = Node::new_expanded(sym, children);
                 std::mem::replace(node, new_subtree);
             }
@@ -45,7 +45,7 @@ impl<'a> GrammarFuzzer<'a> {
         }
     }
 
-    fn expand_tree_with_strategy(&self, root: &mut Node, strategy: &dyn Strategy) {
+    fn expand_tree_with_strategy(&self, root: &mut Node<'a>, strategy: &dyn Strategy<T>) {
         let mut step = 0;
         loop {
             if !root.any_possible_expansions() {
@@ -61,7 +61,7 @@ impl<'a> GrammarFuzzer<'a> {
         }
     }
 
-    pub fn expand_tree(&self, root: &mut Node) {
+    pub fn expand_tree(&self, root: &mut Node<'a>) {
         for strategy in self.steps {
             self.expand_tree_with_strategy(root, *strategy);
         }
