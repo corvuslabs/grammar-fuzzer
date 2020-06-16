@@ -1,14 +1,15 @@
-use ebnffuzzer::extensions::{ebnf_to_bnf, OExpansions};
+use ebnffuzzer::extensions::ebnf_to_bnf;
+use ebnffuzzer::Grammar;
 use ebnffuzzer::GrammarFuzzer;
 use ebnffuzzer::Node;
 use ebnffuzzer::{CloseStrategy, GrowthStrategy, RandomStrategy, Strategy};
-use ebnffuzzer::{Expansions, Grammar};
+use std::collections::HashMap;
 
 use std::cmp::Ordering;
 use std::time::Instant;
 
-fn json_grammar() -> OExpansions {
-    let expansios: Expansions = [
+fn json_grammar() -> Grammar<()> {
+    let expansios: HashMap<_, _> = [
         ("<start>", vec!["<assoc>"]),
         (
             "<value>",
@@ -29,21 +30,23 @@ fn json_grammar() -> OExpansions {
     .cloned()
     .collect();
 
-    OExpansions::from(&Grammar::new(expansios))
+    Grammar::from(expansios)
 }
 
 fn main() {
+    // Fuzzer
     let expansion = GrowthStrategy::new(0, 1000);
     let random = RandomStrategy::new(40, 8000);
     let close = CloseStrategy::new();
-    let strategies: Vec<&dyn Strategy> = vec![&expansion, &random, &close];
+    let strategies: Vec<&dyn Strategy<()>> = vec![&expansion, &random, &close];
 
     let ebnf_json_grammar = json_grammar();
     let json_grammar = ebnf_to_bnf(&ebnf_json_grammar);
-    let json_grammar = Grammar::from(&json_grammar);
     assert_eq!(json_grammar.is_valid_grammar(None), true);
 
     let fuzzer = GrammarFuzzer::new(json_grammar, &strategies);
+
+    // Sample
     let mut stat = Vec::new();
     for _ in 0..100 {
         let mut node = Node::N("<start>".to_owned());

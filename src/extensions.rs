@@ -1,93 +1,76 @@
-use super::grammar::{Expansions, Grammar};
+use super::grammar::{Alternatives, Expansion, Expansions, Grammar};
 use super::parser;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
-pub type OExpansions = HashMap<String, Vec<String>>;
-
-impl<'a> From<&'a OExpansions> for Grammar<'a> {
-    fn from(input: &'a OExpansions) -> Self {
-        let mut grammar = Expansions::new();
-        for (token, expansions) in input.iter() {
-            let token = &token[..];
-            let expansion = expansions.iter().map(|expansion| &expansion[..]).collect();
-            grammar.insert(token, expansion);
-        }
-        Grammar::new(grammar)
-    }
-}
-
-impl<'a> From<&Grammar<'a>> for OExpansions {
-    fn from(input: &Grammar<'a>) -> Self {
-        let mut new_expansions = OExpansions::new();
-        for (token, expansions) in input.iter() {
-            let token = token.to_string();
-            let expansions = expansions
-                .iter()
-                .map(|expansion| expansion.to_string())
-                .collect();
-            new_expansions.insert(token, expansions);
-        }
-
-        new_expansions
-    }
-}
-
-pub fn ebnf_to_bnf(ebnf_grammar: &OExpansions) -> OExpansions {
-    let grammar = convert_grammar(ebnf_grammar, convert_ebnf_parentheses);
+/// ebnf_to_bnf converts a grammar in EBNF to BNF
+/// the only supported EBNF operators are: *, +, ?
+pub fn ebnf_to_bnf<T: Copy>(grammar: &Grammar<T>) -> Grammar<T> {
+    let grammar = convert_grammar(grammar, convert_ebnf_parentheses);
     let grammar = convert_grammar(&grammar, convert_ebnf_operators);
     grammar
 }
 
-fn convert_grammar<F>(ebnf_grammar: &OExpansions, apply: F) -> OExpansions
+/// convert_grammar invokes `apply` function with all expansions in a grammar and returns a new grammar
+fn convert_grammar<T: Copy, F>(ebnf_grammar: &Grammar<T>, apply: F) -> Grammar<T>
 where
-    F: Fn(&str, &mut NewSymbols) -> (String, OExpansions),
+    F: Fn(&Expansion<T>, &mut Symbols) -> (Expansion<T>, Expansions<T>),
 {
-    let mut new_grammar = OExpansions::new();
-    let mut symbols = NewSymbols::from(ebnf_grammar);
+    let mut expansions_for_new_grammar = Expansions::new();
+    let mut new_symbol = Symbols::from(ebnf_grammar);
     for (token, expansions) in ebnf_grammar.iter() {
         for expansion in expansions {
-            let (converted_expansion, new_expansions) = apply(expansion, &mut symbols);
-            new_grammar
+            let (converted_expansion, new_expansions) = apply(expansion, &mut new_symbol);
+            expansions_for_new_grammar
                 .entry(token.to_owned())
                 .or_insert(Vec::new())
                 .push(converted_expansion);
-            new_grammar.extend(new_expansions);
+            expansions_for_new_grammar.extend(new_expansions);
         }
     }
 
-    new_grammar
+    Grammar::new(expansions_for_new_grammar)
 }
 
-fn convert_ebnf_parentheses(expansion: &str, symbols: &mut NewSymbols) -> (String, OExpansions) {
-    let mut converted_expansion = expansion.to_owned();
-    let mut new_expansions = OExpansions::new();
+/// convert_ebnf_parentheses converts parenthesized expressions, ex: `(<json>)+`
+fn convert_ebnf_parentheses<T: Copy>(
+    expansion: &Expansion<T>,
+    symbols: &mut Symbols,
+) -> (Expansion<T>, Expansions<T>) {
+    let mut expansion_symbol = expansion.string.clone();
+    let mut new_expansions = Expansions::new();
     loop {
-        if let Some(expresion) = parser::next_parenthesized_expression(&converted_expansion.clone())
-        {
+        if let Some(expression) = parser::next_parenthesized_expression(&expansion_symbol.clone()) {
             let new_symbol = symbols.new(None);
 
-            converted_expansion = converted_expansion.replacen(
-                expresion.token,
-                &format!("{}{}", new_symbol, expresion.op),
+            expansion_symbol = expansion_symbol.replacen(
+                expression.token,
+                &format!("{}{}", new_symbol, expression.op),
                 1,
             );
-            new_expansions.insert(new_symbol, vec![expresion.content.to_owned()]);
+            new_expansions.insert(new_symbol, vec![Expansion::new(expression.content, None)]);
         } else {
             break;
         }
     }
 
-    (converted_expansion, new_expansions)
+    (
+        Expansion::new(&expansion_symbol, expansion.opts),
+        new_expansions,
+    )
 }
 
-fn convert_ebnf_operators(expansion: &str, symbols: &mut NewSymbols) -> (String, OExpansions) {
-    let mut converted_expansion = expansion.to_owned();
-    let mut new_expansions = OExpansions::new();
+/// convert_ebnf_operators converts extended nonterminals, ex: `<json>+`
+fn convert_ebnf_operators<T: Copy>(
+    expansion: &Expansion<T>,
+    symbols: &mut Symbols,
+) -> (Expansion<T>, Expansions<T>) {
+    let mut expansion_symbol = expansion.string.clone();
+    let mut new_expansions = Expansions::new();
     loop {
-        if let Some(extension) = parser::next_extended_nonterminal(&converted_expansion.clone()) {
+        if let Some(extension) = parser::next_extended_nonterminal(&expansion_symbol.clone()) {
             let new_symbol = symbols.new(None);
 
-            converted_expansion = converted_expansion.replacen(extension.token, &new_symbol, 1);
+            expansion_symbol = expansion_symbol.replacen(extension.token, &new_symbol, 1);
             new_expansions.insert(
                 new_symbol.clone(),
                 operator_expansions(&extension, &new_symbol),
@@ -97,11 +80,17 @@ fn convert_ebnf_operators(expansion: &str, symbols: &mut NewSymbols) -> (String,
         }
     }
 
-    (converted_expansion, new_expansions)
+    (
+        Expansion::new(&expansion_symbol, expansion.opts),
+        new_expansions,
+    )
 }
 
-fn operator_expansions(extension: &parser::ExtendedNonterminal, new_symbol: &str) -> Vec<String> {
-    let original_symbol = extension.symbol.to_owned();
+fn operator_expansions<T>(
+    extension: &parser::ExtendedNonterminal,
+    new_symbol: &str,
+) -> Alternatives<T> {
+    let original_symbol = String::from(extension.symbol);
     match extension.op {
         "?" => vec![format!(""), original_symbol],
         "*" => vec![format!(""), format!("{}{}", original_symbol, new_symbol)],
@@ -111,42 +100,43 @@ fn operator_expansions(extension: &parser::ExtendedNonterminal, new_symbol: &str
         ],
         _ => panic!(),
     }
+    .iter()
+    .map(|e| Expansion::new(e, None))
+    .collect()
 }
 
 // -------------------------------- NewSymbols --------------------------------
 
-struct NewSymbols {
+struct Symbols {
     existing_nonterminals: HashSet<String>,
 }
 
-impl NewSymbols {
+impl Symbols {
+    /// returns a unique nonterminal symbol on every invokation
     fn new(&mut self, nonterminal_symbol: Option<&str>) -> String {
-        let symbol = nonterminal_symbol.unwrap_or("<symbol>");
-        if self.existing_nonterminals.contains(symbol) {
+        let mut tentative_symbol = nonterminal_symbol.unwrap_or("<symbol>").to_owned();
+        let symbol_name = &tentative_symbol.clone()[1..tentative_symbol.len() - 1];
+        if self.existing_nonterminals.contains(&tentative_symbol) {
             let mut count = 0;
             loop {
                 count += 1;
-                let tentative_symbol_name = format!("<{}-{}>", &symbol[1..symbol.len() - 1], count);
-                if !self
-                    .existing_nonterminals
-                    .contains(&tentative_symbol_name[..])
-                {
-                    self.existing_nonterminals
-                        .insert(tentative_symbol_name.to_owned());
-                    return tentative_symbol_name;
+                tentative_symbol = format!("<{}-{}>", symbol_name, count);
+                if !self.existing_nonterminals.contains(&tentative_symbol) {
+                    break;
                 }
             }
         }
 
-        self.existing_nonterminals.insert(symbol.to_owned());
-        symbol.to_owned()
+        self.existing_nonterminals.insert(tentative_symbol.clone());
+        tentative_symbol
     }
 }
 
-impl From<&OExpansions> for NewSymbols {
-    fn from(input: &OExpansions) -> Self {
-        let nonterminal_tokens: HashSet<String> = input.keys().map(|k| k.clone()).collect();
-        NewSymbols {
+impl<T> From<&Grammar<T>> for Symbols {
+    /// uses defined nonterminal symbol in a grammar to create a Symbols struct
+    fn from(input: &Grammar<T>) -> Self {
+        let nonterminal_tokens: HashSet<String> = input.keys().cloned().collect();
+        Symbols {
             existing_nonterminals: nonterminal_tokens,
         }
     }
