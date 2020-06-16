@@ -7,7 +7,7 @@ use nom::{
 
 // -------------------------------- Tokens ------------------------------------
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum Token<'a> {
     Terminal(&'a str),
     Nonterminal(&'a str),
@@ -41,7 +41,7 @@ pub fn tokens(input: &str) -> Vec<Token> {
 
 // ----------------------------- Expressions ----------------------------------
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ParenthesizedExpression<'a> {
     pub token: &'a str,
     pub op: &'a str,
@@ -100,5 +100,46 @@ pub fn next_extended_nonterminal(input: &str) -> Option<ExtendedNonterminal> {
     match many_till(take(1usize), extended_nonterminal)(input) {
         Ok((_, (_, en))) => Some(en),
         Err(_) => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_tokens() {
+        let result = tokens("<string>: <json>");
+        let expected = vec![
+            Token::Nonterminal("<string>"),
+            Token::Terminal(": "),
+            Token::Nonterminal("<json>"),
+        ];
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_next_parenthesized_expression() {
+        let result = next_parenthesized_expression("[(<value>, )*<value>]");
+        let expected = Some(ParenthesizedExpression {
+            token: "(<value>, )*",
+            op: "*",
+            content: "<value>, ",
+        });
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_next_extended_nonterminal() {
+        let result = next_extended_nonterminal("[<value>*]");
+        let expected = Some(ExtendedNonterminal {
+            token: "<value>*",
+            op: "*",
+            symbol: "<value>",
+        });
+
+        assert_eq!(result, expected);
     }
 }

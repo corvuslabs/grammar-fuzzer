@@ -17,8 +17,12 @@ where
 {
     let mut expansions_for_new_grammar = Expansions::new();
     let mut new_symbol = Symbols::from(grammar);
-    for (token, expansions) in grammar.iter() {
-        for expansion in expansions {
+    // sort the keys to ensure convert_grammar is deterministic
+    let mut tokens: Vec<String> = grammar.keys().cloned().collect();
+    tokens.sort();
+
+    for token in tokens.iter() {
+        for expansion in &grammar[token] {
             let (converted_expansion, new_expansions) = apply(expansion, &mut new_symbol);
             expansions_for_new_grammar
                 .entry(token.to_owned())
@@ -139,5 +143,45 @@ impl<T> From<&Grammar<T>> for Symbols {
         Symbols {
             existing_nonterminals: nonterminal_tokens,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    #[test]
+    fn test_ebnf_to_bnf() {
+        let ebnf_grammar: HashMap<&str, Vec<&str>> = [
+            ("<list>", vec!["[(<string>, )*<string>]"]),
+            ("<assoc>", vec!["{(<string>: <string>, )+}"]),
+            ("<string>", vec!["<string>?<char>"]),
+            ("<char>", vec!["a", "b", "c", "d"]),
+        ]
+        .iter()
+        .cloned()
+        .collect();
+
+        let ebnf_grammar = Grammar::from(ebnf_grammar);
+
+        let expected_bnf_grammar: HashMap<&str, Vec<&str>> = [
+            ("<list>", vec!["[<symbol-3><string>]"]),
+            ("<assoc>", vec!["{<symbol-2>}"]),
+            ("<string>", vec!["<symbol-4><char>"]),
+            ("<char>", vec!["a", "b", "c", "d"]),
+            ("<symbol>", vec!["<string>: <string>, "]),
+            ("<symbol-1>", vec!["<string>, "]),
+            ("<symbol-2>", vec!["<symbol>", "<symbol><symbol-2>"]),
+            ("<symbol-3>", vec!["", "<symbol-1><symbol-3>"]),
+            ("<symbol-4>", vec!["", "<string>"]),
+        ]
+        .iter()
+        .cloned()
+        .collect();
+
+        let expected_bnf_grammar = Grammar::from(expected_bnf_grammar);
+
+        assert_eq!(ebnf_to_bnf(&ebnf_grammar), expected_bnf_grammar);
     }
 }

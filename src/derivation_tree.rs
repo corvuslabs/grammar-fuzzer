@@ -4,7 +4,7 @@ use super::parser::{self, Token};
 use std::cell::RefCell;
 use std::ops::Deref;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Node {
     /// T is a `Terminal Node`
     T(String),
@@ -14,7 +14,7 @@ pub enum Node {
     EN(String, Children),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Children {
     pub roots: Vec<RefCell<Node>>,
 }
@@ -105,5 +105,83 @@ impl Node {
                 .map(|child| child.borrow().num_possible_expansions())
                 .sum(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Node::{EN, N, T};
+    use super::*;
+
+    fn unexpanded_digit_derivation_tree() -> Node {
+        EN(
+            String::from("<int>"),
+            Children {
+                roots: vec![RefCell::new(N(String::from("<digit>")))],
+            },
+        )
+    }
+
+    fn digit_derivation_tree(d: usize) -> Node {
+        EN(
+            String::from("<digit>"),
+            Children {
+                roots: vec![RefCell::new(T(format!("{}", d)))],
+            },
+        )
+    }
+
+    fn int_derivation_tree(d: usize) -> Node {
+        if d > 1 {
+            EN(
+                String::from("<int>"),
+                Children {
+                    roots: vec![
+                        RefCell::new(int_derivation_tree(d - 1)),
+                        RefCell::new(digit_derivation_tree(d)),
+                    ],
+                },
+            )
+        } else {
+            T(format!("{}", d))
+        }
+    }
+
+    #[test]
+    fn test_display_for_node() {
+        let derivation_tree = int_derivation_tree(9);
+        assert_eq!(format!("{}", derivation_tree), "123456789");
+    }
+
+    #[test]
+    fn test_from_str_for_children() {
+        let result = Children::from("<string>: <value>");
+        let expected = Children {
+            roots: vec![
+                RefCell::new(N(String::from("<string>"))),
+                RefCell::new(T(String::from(": "))),
+                RefCell::new(N(String::from("<value>"))),
+            ],
+        };
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_any_possible_expansions() {
+        assert_eq!(int_derivation_tree(9).any_possible_expansions(), false);
+        assert_eq!(
+            unexpanded_digit_derivation_tree().any_possible_expansions(),
+            true
+        );
+    }
+
+    #[test]
+    fn test_num_possible_expansions() {
+        assert_eq!(int_derivation_tree(9).num_possible_expansions(), 0);
+        assert_eq!(
+            unexpanded_digit_derivation_tree().num_possible_expansions(),
+            1
+        );
     }
 }

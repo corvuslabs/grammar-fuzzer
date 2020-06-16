@@ -7,6 +7,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::ops::Deref;
 
+#[derive(Eq)]
 pub struct Expansion<T> {
     pub string: String,
     pub opts: Option<T>,
@@ -21,6 +22,12 @@ impl<T> Expansion<T> {
     }
 }
 
+impl<T> PartialEq for Expansion<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.string == other.string
+    }
+}
+
 impl<T> fmt::Debug for Expansion<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.string)
@@ -31,7 +38,7 @@ pub type Alternatives<T> = Vec<Expansion<T>>;
 
 pub type Expansions<T> = HashMap<String, Alternatives<T>>;
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct Grammar<T> {
     expansions: Expansions<T>,
 }
@@ -167,4 +174,99 @@ fn nonterminal_tokens(input: &str) -> Vec<&str> {
             Token::Terminal(_) => panic!(),
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    fn sample_grammar() -> Grammar<()> {
+        let expansios: HashMap<_, _> = [
+            ("<list>", vec!["[<values>]"]),
+            ("<values>", vec!["<values>, <int>", "<int>"]),
+            ("<int>", vec!["<digit><int>", "<digit>"]),
+            (
+                "<digit>",
+                vec!["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
+            ),
+        ]
+        .iter()
+        .cloned()
+        .collect();
+        Grammar::from(expansios)
+    }
+
+    fn invalid_grammar() -> Grammar<()> {
+        let expansios: HashMap<_, _> = [
+            ("<list>", vec!["[<values>]"]),
+            ("<values>", vec!["<values>, <int>", "<int>"]),
+            ("<int>", vec!["<digit><int>"]), // infinite loop
+            (
+                "<digit>",
+                vec!["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
+            ),
+        ]
+        .iter()
+        .cloned()
+        .collect();
+        Grammar::from(expansios)
+    }
+
+    #[test]
+    fn test_symbol_cost() {
+        let grammar = sample_grammar();
+        assert_eq!(grammar.symbol_cost("<digit>", &HashSet::new()), 1.0);
+        assert_eq!(grammar.symbol_cost("<int>", &HashSet::new()), 2.0);
+        assert_eq!(grammar.symbol_cost("<values>", &HashSet::new()), 3.0);
+        assert_eq!(grammar.symbol_cost("<list>", &HashSet::new()), 4.0);
+    }
+
+    #[test]
+    fn expansion_cost() {
+        let grammar = sample_grammar();
+        assert_eq!(
+            grammar.expansion_cost(&Expansion::new("<digit><int>", None), &HashSet::new()),
+            4.0
+        );
+
+        assert_eq!(
+            grammar.expansion_cost(&Expansion::new("<values>, <int>", None), &HashSet::new()),
+            6.0
+        );
+    }
+
+    #[test]
+    fn is_valid_grammar() {
+        let grammar = sample_grammar();
+        assert_eq!(grammar.is_valid_grammar(Some("<list>")), true);
+
+        let invalid_grammar = invalid_grammar();
+        assert_eq!(invalid_grammar.is_valid_grammar(Some("<list>")), false);
+    }
+
+    #[test]
+    fn test_find_reachable_nonterminals() {
+        let grammar = sample_grammar();
+        let reachable_nonterminals = ["<list>", "<values>", "<int>", "<digit>"]
+            .iter()
+            .cloned()
+            .collect();
+        assert_eq!(
+            grammar.find_reachable_nonterminals("<list>"),
+            reachable_nonterminals
+        );
+    }
+
+    #[test]
+    fn test_find_unavoidable_cycle() {
+        let grammar = sample_grammar();
+        let expected: Vec<&str> = Vec::new();
+        assert_eq!(grammar.find_unavoidable_cycle(), expected);
+
+        let grammar = invalid_grammar();
+        let mut result = grammar.find_unavoidable_cycle();
+        result.sort();
+        assert_eq!(result, vec!["<int>", "<list>", "<values>"]);
+    }
 }

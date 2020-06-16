@@ -58,3 +58,44 @@ where
     let idx = idxs.choose(&mut rng)?;
     Some(&vs[*idx])
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_add_to_set() {
+        let input = vec!["<string>", "<json>"].iter().cloned().collect();
+        let result = add_to_set(&input, "<symbol>");
+        let expected: HashSet<&str> = vec!["<string>", "<json>", "<symbol>"]
+            .iter()
+            .cloned()
+            .collect();
+        assert_eq!(expected, result);
+    }
+
+    #[test]
+    fn test_min_idx() {
+        let result = min_idx(&vec![1.0, 2.0, 3.0, 4.0, 1.0]);
+        let expected_idx = vec![0, 4];
+
+        assert_eq!(expected_idx.contains(&result), true);
+    }
+
+    #[test]
+    fn test_max_idx() {
+        let result = max_idx(&vec![1.0, 2.0, 3.0, 4.0, 4.0]);
+        let expected_idx = vec![3, 4];
+
+        assert_eq!(expected_idx.contains(&result), true);
+    }
+
+    #[test]
+    fn test_random_element() {
+        let input = vec![1, 2, 3, 4, 5];
+        let result = random_element(&input, |e| *e > 3);
+        let expected_values = vec![Some(&4), Some(&5)];
+
+        assert_eq!(expected_values.contains(&result), true);
+    }
+}

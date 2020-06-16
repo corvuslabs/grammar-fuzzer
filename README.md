@@ -8,8 +8,7 @@ A grammar fuzzer following the ["Fuzzing with Grammars"](https://www.fuzzingbook
 ## TODO
 - [ ] Improve the exploration strategies
 - [ ] Improve the runtime of the grammar fuzzer
-- [ ] Add unit test
-- [ ] Add comments
+- [ ] Add documentation
 - [ ] Better error handling
 - [ ] Cache computation
 
