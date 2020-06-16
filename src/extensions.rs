@@ -11,13 +11,13 @@ pub fn ebnf_to_bnf<T: Copy>(grammar: &Grammar<T>) -> Grammar<T> {
 }
 
 /// convert_grammar invokes `apply` function with all expansions in a grammar and returns a new grammar
-fn convert_grammar<T: Copy, F>(ebnf_grammar: &Grammar<T>, apply: F) -> Grammar<T>
+fn convert_grammar<T: Copy, F>(grammar: &Grammar<T>, apply: F) -> Grammar<T>
 where
     F: Fn(&Expansion<T>, &mut Symbols) -> (Expansion<T>, Expansions<T>),
 {
     let mut expansions_for_new_grammar = Expansions::new();
-    let mut new_symbol = Symbols::from(ebnf_grammar);
-    for (token, expansions) in ebnf_grammar.iter() {
+    let mut new_symbol = Symbols::from(grammar);
+    for (token, expansions) in grammar.iter() {
         for expansion in expansions {
             let (converted_expansion, new_expansions) = apply(expansion, &mut new_symbol);
             expansions_for_new_grammar

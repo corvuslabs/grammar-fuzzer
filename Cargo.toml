@@ -1,5 +1,5 @@
 [package]
-name = "ebnffuzzer"
+name = "grammar-fuzzer"
 version = "0.1.0"
 authors = ["enchanted-engineering <dev@enchanted.engineering>"]
 edition = "2018"

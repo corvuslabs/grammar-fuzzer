@@ -1,8 +1,8 @@
-use ebnffuzzer::extensions::ebnf_to_bnf;
-use ebnffuzzer::Grammar;
-use ebnffuzzer::GrammarFuzzer;
-use ebnffuzzer::Node;
-use ebnffuzzer::{CloseStrategy, GrowthStrategy, RandomStrategy, Strategy};
+use grammar_fuzzer::extensions::ebnf_to_bnf;
+use grammar_fuzzer::Grammar;
+use grammar_fuzzer::GrammarFuzzer;
+use grammar_fuzzer::Node;
+use grammar_fuzzer::{CloseStrategy, GrowthStrategy, RandomStrategy, Strategy};
 use std::collections::HashMap;
 
 use std::cmp::Ordering;

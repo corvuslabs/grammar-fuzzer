@@ -22,14 +22,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b486ce3ccf7ffd79fdeb678eac06a9e6c09fc88d33836340becb8fffe87c5e33"
 
 [[package]]
-name = "ebnffuzzer"
-version = "0.1.0"
-dependencies = [
- "nom",
- "rand",
-]
-
-[[package]]
 name = "getrandom"
 version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -38,6 +30,14 @@ dependencies = [
  "cfg-if",
  "libc",
  "wasi",
+]
+
+[[package]]
+name = "grammar-fuzzer"
+version = "0.1.0"
+dependencies = [
+ "nom",
+ "rand",
 ]
 
 [[package]]
