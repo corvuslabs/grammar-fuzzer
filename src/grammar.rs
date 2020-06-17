@@ -1,4 +1,26 @@
-//! # Grammar
+//! A BNF grammar defining how nonterminal symbols could be expanded
+//!
+//! ## Example
+//!
+//! ```
+//! use grammar_fuzzer::Grammar;
+//! use std::collections::HashMap;
+//! 
+//! let expansios: HashMap<_, _> = [
+//!     ("<list>", vec!["[<values>]"]),
+//!     ("<values>", vec!["<values>, <int>", "<int>"]),
+//!     ("<int>", vec!["<digit><int>", "<digit>"]),
+//!     (
+//!         "<digit>",
+//!         vec!["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
+//!     ),
+//! ]
+//! .iter()
+//! .cloned()
+//! .collect();
+//!
+//! Grammar::from(expansios);
+//! ```
 
 use super::parser::{self, Token};
 use super::shared::add_to_set;
@@ -7,9 +29,12 @@ use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::ops::Deref;
 
+/// A nonterminal symbol can be replaced by an expansion `string`
 #[derive(Eq)]
 pub struct Expansion<T> {
+    /// An expansion string, a sequence of terminal and nonterminal tokens
     pub string: String,
+    /// Additional information about the expansion for the fuzzer
     pub opts: Option<T>,
 }
 
@@ -34,10 +59,13 @@ impl<T> fmt::Debug for Expansion<T> {
     }
 }
 
+/// The set of alternative expansions for a nonterminal symbol
 pub type Alternatives<T> = Vec<Expansion<T>>;
 
+/// A mapping between nonterminal tokens and their alternative expansions
 pub type Expansions<T> = HashMap<String, Alternatives<T>>;
 
+/// A trivial wrapper around Expansions
 #[derive(Debug, Eq, PartialEq)]
 pub struct Grammar<T> {
     expansions: Expansions<T>,
@@ -78,7 +106,7 @@ impl<T> Grammar<T> {
         Grammar { expansions }
     }
 
-    /// symbol_cost is the minimum of the potential expansion costs
+    /// The minimum of the potential expansion costs
     pub fn symbol_cost(&self, symbol: &str, seen: &HashSet<&str>) -> f64 {
         self[symbol]
             .iter()
@@ -86,7 +114,7 @@ impl<T> Grammar<T> {
             .fold(f64::INFINITY, |min, c| if min < c { min } else { c })
     }
 
-    /// expansion_cost is sum of the nonterminal symbol costs plus 1
+    /// Sum of the nonterminal symbol costs plus 1
     /// if we have visited one of the nonterminal symbols in the expansion before, the cost is infinity
     pub fn expansion_cost(&self, expansion: &Expansion<T>, seen: &HashSet<&str>) -> f64 {
         let nonterminals = nonterminal_tokens(&expansion.string);
@@ -105,7 +133,7 @@ impl<T> Grammar<T> {
         cost
     }
 
-    /// is_valid_grammar looks for unreachable nonterminals, reachable nonterminals and unavoidable cycles
+    /// Looks for unreachable nonterminals, reachable nonterminals and unavoidable cycles
     pub fn is_valid_grammar(&self, start_symbol: Option<&str>) -> bool {
         let start_symbol = start_symbol.unwrap_or("<start>");
         let reachable_nonterminals = self.find_reachable_nonterminals(start_symbol);
@@ -125,7 +153,7 @@ impl<T> Grammar<T> {
         undefined_nonterminals.is_empty() & cycle.is_empty()
     }
 
-    /// find_reachable_nonterminals returns reachable nonterminal symbols from a start symbol
+    /// Returns reachable nonterminal symbols from a start symbol
     fn find_reachable_nonterminals<'a>(&'a self, symbol: &'a str) -> HashSet<&'a str> {
         let mut result = HashSet::new();
         let mut frontier = vec![symbol];
@@ -144,7 +172,7 @@ impl<T> Grammar<T> {
         result
     }
 
-    /// find_unavoidable_cycle returns the nonterminal symbols that appear in any unavoidable cycles
+    /// Returns the nonterminal symbols that appear in any unavoidable cycles
     fn find_unavoidable_cycle(&self) -> Vec<&str> {
         let defined_nonterminals: Vec<&str> = self.keys().map(|t| t.as_str()).collect();
         let costs: Vec<f64> = defined_nonterminals
@@ -161,7 +189,7 @@ impl<T> Grammar<T> {
     }
 }
 
-/// nonterminal_tokens returns the nonterminal symbols in the same order as the input string
+/// Returns the nonterminal symbols in the same order as the input string
 fn nonterminal_tokens(input: &str) -> Vec<&str> {
     parser::tokens(input)
         .iter()

@@ -31,7 +31,7 @@ fn token(input: &str) -> IResult<&str, Token> {
     alt((nonterminal_token, terminal_token))(input)
 }
 
-/// tokens returns a sequence of terminal an nonterminal tokens
+/// Returns a sequence of terminal an nonterminal tokens
 pub fn tokens(input: &str) -> Vec<Token> {
     // it should consume the whole input
     let (input, tokens) = many0(token)(input).unwrap();
@@ -63,7 +63,7 @@ fn parenthesized_expression(input: &str) -> IResult<&str, ParenthesizedExpressio
     Ok((_input, parenthesized_expression))
 }
 
-/// next_parenthesized_expression returns the next paranthesized expression in the input string
+/// Returns the next paranthesized expression in the input string
 pub fn next_parenthesized_expression(input: &str) -> Option<ParenthesizedExpression> {
     match many_till(take(1usize), parenthesized_expression)(input) {
         Ok((_, (_, pe))) => Some(pe),
@@ -95,7 +95,7 @@ fn extended_nonterminal(input: &str) -> IResult<&str, ExtendedNonterminal> {
     Ok((_input, extended_nonterminal))
 }
 
-/// next_extended_nonterminal returns the next extended nonterminal
+/// Returns the next extended nonterminal
 pub fn next_extended_nonterminal(input: &str) -> Option<ExtendedNonterminal> {
     match many_till(take(1usize), extended_nonterminal)(input) {
         Ok((_, (_, en))) => Some(en),

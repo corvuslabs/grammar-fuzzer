@@ -1,23 +1,45 @@
+//! Grammar extensions, specifically EBNF
+//!
+//! # Example
+//!
+//! ```
+//! use grammar_fuzzer::{Grammar, ebnf_to_bnf};
+//! use std::collections::HashMap;
+//! 
+//! let ebnf_grammar: HashMap<&str, Vec<&str>> = [
+//!     ("<list>", vec!["[(<string>, )*<string>]"]),
+//!     ("<assoc>", vec!["{(<string>: <string>, )+}"]),
+//!     ("<string>", vec!["<string>?<char>"]),
+//!     ("<char>", vec!["a", "b", "c", "d"]),
+//! ]
+//! .iter()
+//! .cloned()
+//! .collect();
+//!
+//! let ebnf_grammar = Grammar::from(ebnf_grammar);
+//!
+//! let bnf_grammar = ebnf_to_bnf(&ebnf_grammar);
+//! ```
+
 use super::grammar::{Alternatives, Expansion, Expansions, Grammar};
 use super::parser;
 use std::collections::HashSet;
 
-/// ebnf_to_bnf converts a grammar in EBNF to BNF
-/// the only supported EBNF operators are: *, +, ?
+/// Converts a grammar in EBNF to BNF, the only supported EBNF operators are: `*+?`
 pub fn ebnf_to_bnf<T: Copy>(grammar: &Grammar<T>) -> Grammar<T> {
     let grammar = convert_grammar(grammar, convert_ebnf_parentheses);
     let grammar = convert_grammar(&grammar, convert_ebnf_operators);
     grammar
 }
 
-/// convert_grammar invokes `apply` function with all expansions in a grammar and returns a new grammar
+/// Invokes `apply` function with all expansions in a grammar and returns a new grammar
 fn convert_grammar<T: Copy, F>(grammar: &Grammar<T>, apply: F) -> Grammar<T>
 where
     F: Fn(&Expansion<T>, &mut Symbols) -> (Expansion<T>, Expansions<T>),
 {
     let mut expansions_for_new_grammar = Expansions::new();
     let mut new_symbol = Symbols::from(grammar);
-    // sort the keys to ensure convert_grammar is deterministic
+    // Sort the keys to ensure convert_grammar is deterministic
     let mut tokens: Vec<String> = grammar.keys().cloned().collect();
     tokens.sort();
 
@@ -35,7 +57,7 @@ where
     Grammar::new(expansions_for_new_grammar)
 }
 
-/// convert_ebnf_parentheses converts parenthesized expressions, ex: `(<json>)+`
+/// Converts parenthesized expressions, ex: `(<json>)+`
 fn convert_ebnf_parentheses<T: Copy>(
     expansion: &Expansion<T>,
     symbols: &mut Symbols,
@@ -63,7 +85,7 @@ fn convert_ebnf_parentheses<T: Copy>(
     )
 }
 
-/// convert_ebnf_operators converts extended nonterminals, ex: `<json>+`
+/// Converts extended nonterminals, ex: `<json>+`
 fn convert_ebnf_operators<T: Copy>(
     expansion: &Expansion<T>,
     symbols: &mut Symbols,
@@ -116,7 +138,7 @@ struct Symbols {
 }
 
 impl Symbols {
-    /// returns a unique nonterminal symbol on every invokation
+    /// Returns a unique nonterminal symbol on every invokation
     fn new(&mut self, nonterminal_symbol: Option<&str>) -> String {
         let mut tentative_symbol = nonterminal_symbol.unwrap_or("<symbol>").to_owned();
         let symbol_name = &tentative_symbol.clone()[1..tentative_symbol.len() - 1];
@@ -137,7 +159,7 @@ impl Symbols {
 }
 
 impl<T> From<&Grammar<T>> for Symbols {
-    /// uses defined nonterminal symbol in a grammar to create a Symbols struct
+    /// Uses defined nonterminal symbol in a grammar to create a Symbols struct
     fn from(input: &Grammar<T>) -> Self {
         let nonterminal_tokens: HashSet<String> = input.keys().cloned().collect();
         Symbols {

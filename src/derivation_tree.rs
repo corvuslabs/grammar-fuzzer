@@ -1,9 +1,11 @@
-//! # Derivation Tree
+//! When all the nonterminal nodes have been expanded, traversing the leaves from left to right
+//! results in an example in the grammar that was used to expand the tree
 
 use super::parser::{self, Token};
 use std::cell::RefCell;
 use std::ops::Deref;
 
+/// A Derivation Tree Node
 #[derive(Debug, PartialEq, Eq)]
 pub enum Node {
     /// T is a `Terminal Node`
@@ -14,6 +16,7 @@ pub enum Node {
     EN(String, Children),
 }
 
+/// A sequence of child nodes for an Expanded Nonterminal Node
 #[derive(Debug, PartialEq, Eq)]
 pub struct Children {
     pub roots: Vec<RefCell<Node>>,
@@ -51,7 +54,7 @@ impl Children {
 }
 
 impl From<&str> for Children {
-    /// splits an expansion-string into terminal and nonterminal symbols and lift them into Node::T and Node::N
+    /// Splits an expansion-string into terminal and nonterminal symbols and lift them into Node::T and Node::N
     fn from(expansion: &str) -> Self {
         let tokens = parser::tokens(expansion);
         if tokens.is_empty() {
@@ -84,7 +87,7 @@ impl Node {
         Node::EN(String::from(sym), children)
     }
 
-    /// any_possible_expansions returns true when there is a Node::N in a subtree
+    /// Returns true when there is a Node::N in a subtree
     pub fn any_possible_expansions(&self) -> bool {
         match self {
             Node::T(_) => false,
@@ -95,7 +98,7 @@ impl Node {
         }
     }
 
-    /// any_possible_expansions returns the number of Node::N in a subtree
+    /// Returns the number of Node::N in a subtree
     pub fn num_possible_expansions(&self) -> usize {
         match self {
             Node::T(_) => 0,

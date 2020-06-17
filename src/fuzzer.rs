@@ -1,5 +1,32 @@
-//! # Grammar Fuzzer
-
+//! A grammar fuzzer that supports different expansion strategies
+//!
+//! # Example
+//!
+//! ```
+//! use grammar_fuzzer::{Grammar, GrammarFuzzer, Node};
+//! use grammar_fuzzer::{RandomStrategy, Strategy};
+//! use std::collections::HashMap;
+//! 
+//! // Strategies
+//! let random = RandomStrategy::new(10, 8000);
+//! let strategies: Vec<&dyn Strategy<()>> = vec![&random];
+//! // Grammar
+//! let expansios: HashMap<_, _> = [
+//!         ("<string>", vec!["<string><char>", "<char>"]),
+//!         ("<char>", vec!["a", "b", "c", "d"]),
+//!     ]
+//!     .iter()
+//!     .cloned()
+//!     .collect();
+//! let grammar = Grammar::from(expansios);
+//! assert_eq!(grammar.is_valid_grammar(Some("<string>")), true);
+//! // Fuzzer
+//! let fuzzer = GrammarFuzzer::new(grammar, &strategies);
+//! // Expand the derivation tree
+//! let mut node = Node::N(String::from("<string>"));
+//! fuzzer.expand_tree(&mut node);
+//! println!("{}\n", node);
+//! ```
 use super::derivation_tree::{Children, Node};
 use super::grammar::Grammar;
 use super::shared::random_element;
@@ -15,7 +42,7 @@ impl<'a, T> GrammarFuzzer<'a, T> {
         GrammarFuzzer { grammar, steps }
     }
 
-    /// expand_nonterminal selects an expansion given a strategy and divides the expansion-string into
+    /// Selects an expansion given a strategy and divides the expansion-string into
     /// a sequence of terminal and nonterminal child nodes
     fn expand_nonterminal(&self, node: &Node, strategy: &dyn Strategy<T>) -> Children {
         match node {
@@ -28,7 +55,7 @@ impl<'a, T> GrammarFuzzer<'a, T> {
         }
     }
 
-    /// expand_tree_once expands a nonterminal leaf node in the derivation tree
+    /// Expands a nonterminal leaf node in the derivation tree
     fn expand_tree_once(&self, node: &mut Node, strategy: &dyn Strategy<T>) {
         match node {
             Node::T(_) => (),
@@ -48,7 +75,7 @@ impl<'a, T> GrammarFuzzer<'a, T> {
         }
     }
 
-    /// expand_tree_with_strategy expands the derivation tree following a strategy
+    /// Expands the derivation tree following a strategy
     /// it terminates when `strategy.cont` returns false or when all the nonterminal nodes have been expanded
     fn expand_tree_with_strategy(&self, root: &mut Node, strategy: &dyn Strategy<T>) {
         let mut step = 0;
@@ -66,7 +93,7 @@ impl<'a, T> GrammarFuzzer<'a, T> {
         }
     }
 
-    /// expand_tree applies a sequence of strategies
+    /// Applies a sequence of strategies
     pub fn expand_tree(&self, root: &mut Node) {
         for strategy in self.steps {
             self.expand_tree_with_strategy(root, *strategy);
