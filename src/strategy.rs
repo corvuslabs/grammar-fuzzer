@@ -1,11 +1,16 @@
 use super::derivation_tree::Node;
-use super::grammar::Grammar;
+use super::grammar::{Alternatives, Grammar};
 use super::shared::{max_idx, min_idx};
 use rand::Rng;
 
-pub trait Strategy {
+pub trait Strategy<T> {
+    /// cont defines wheather to continue expanding the derivation tree following the current strategy
+    /// dt_root: is the root node of the derivation-tree
+    /// num_steps: is how many times the derivation tree was expanded following the current strategy
     fn cont(&self, dt_root: &Node, num_steps: usize) -> bool;
-    fn choose<'a>(&self, grammar: &'a Grammar, node: &Node) -> Option<&'a str>;
+
+    /// choose selects an expansion-string for a given nonterminal node
+    fn choose(&self, grammar: &Grammar<T>, node: &Node) -> Option<String>;
 }
 
 // -------------------------------- Random ------------------------------------
@@ -24,18 +29,20 @@ impl RandomStrategy {
     }
 }
 
-impl Strategy for RandomStrategy {
+impl<T> Strategy<T> for RandomStrategy {
+    /// continue until reaching the expected number of nonterminal nodes or passing the expansions limit
     fn cont(&self, dt_root: &Node, num_steps: usize) -> bool {
         dt_root.num_possible_expansions() < self.nonterminals_threshold
             && num_steps < self.max_steps
     }
 
-    fn choose<'a>(&self, grammar: &'a Grammar, node: &Node) -> Option<&'a str> {
+    /// choose a random expansion
+    fn choose(&self, grammar: &Grammar<T>, node: &Node) -> Option<String> {
         match node {
-            Node::N(sym) => {
-                let expansions = &grammar[&sym[..]];
+            Node::N(symbol) => {
+                let expansions = &grammar[symbol];
                 let rand_idx = rand::thread_rng().gen_range(0, expansions.len());
-                let choosen_expansion = expansions[rand_idx];
+                let choosen_expansion = expansions[rand_idx].string.clone();
                 Some(choosen_expansion)
             }
             _ => None,
@@ -59,19 +66,21 @@ impl GrowthStrategy {
     }
 }
 
-impl Strategy for GrowthStrategy {
+impl<T> Strategy<T> for GrowthStrategy {
+    /// continue until reaching the expected number of nonterminal nodes or passing the expansions limit
     fn cont(&self, dt_root: &Node, num_steps: usize) -> bool {
         dt_root.num_possible_expansions() < self.nonterminals_threshold
             && num_steps < self.max_steps
     }
 
-    fn choose<'a>(&self, grammar: &'a Grammar, node: &Node) -> Option<&'a str> {
+    /// choose an expansion that maximizes the cost
+    fn choose(&self, grammar: &Grammar<T>, node: &Node) -> Option<String> {
         match node {
-            Node::N(sym) => {
-                let expansions = &grammar[&sym[..]];
-                let costs = costs(grammar, sym, expansions);
+            Node::N(symbol) => {
+                let expansions = &grammar[symbol];
+                let costs = costs(grammar, symbol, expansions);
                 let max_idx = max_idx(&costs);
-                let choosen_expansion = expansions[max_idx];
+                let choosen_expansion = expansions[max_idx].string.clone();
                 Some(choosen_expansion)
             }
             _ => None,
@@ -89,18 +98,20 @@ impl CloseStrategy {
     }
 }
 
-impl Strategy for CloseStrategy {
+impl<T> Strategy<T> for CloseStrategy {
+    /// continue until all the nodes have been expanded
     fn cont(&self, _dt_root: &Node, _num_steps: usize) -> bool {
         true
     }
 
-    fn choose<'a>(&self, grammar: &'a Grammar, node: &Node) -> Option<&'a str> {
+    /// choose an expansion that minimizes the cost
+    fn choose(&self, grammar: &Grammar<T>, node: &Node) -> Option<String> {
         match node {
-            Node::N(sym) => {
-                let expansions = &grammar[&sym[..]];
-                let costs = costs(grammar, sym, expansions);
+            Node::N(symbol) => {
+                let expansions = &grammar[symbol];
+                let costs = costs(grammar, symbol, expansions);
                 let min_idx = min_idx(&costs);
-                let choosen_expansion = expansions[min_idx];
+                let choosen_expansion = expansions[min_idx].string.clone();
                 Some(choosen_expansion)
             }
             _ => None,
@@ -110,7 +121,7 @@ impl Strategy for CloseStrategy {
 
 // ---------------------------------- Helpers ---------------------------------
 
-fn costs(grammar: &Grammar, sym: &str, expansions: &Vec<&str>) -> Vec<f64> {
+fn costs<T>(grammar: &Grammar<T>, sym: &str, expansions: &Alternatives<T>) -> Vec<f64> {
     let seen = [sym].iter().cloned().collect();
     expansions
         .iter()

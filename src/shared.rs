@@ -3,12 +3,14 @@
 use rand::seq::SliceRandom;
 use std::collections::HashSet;
 
-pub fn add_to_set<'a>(s: &HashSet<&'a str>, e: &'a str) -> HashSet<&'a str> {
+/// add_to_set returns a new set that includes the element
+pub fn add_to_set<'a>(s: &HashSet<&'a str>, element: &'a str) -> HashSet<&'a str> {
     let mut new_set = s.clone();
-    new_set.insert(e);
+    new_set.insert(element);
     new_set
 }
 
+/// selects randomly from the set of indicies of min value elements
 pub fn min_idx(vs: &Vec<f64>) -> usize {
     assert_eq!(vs.is_empty(), false);
     let min = vs
@@ -23,6 +25,7 @@ pub fn min_idx(vs: &Vec<f64>) -> usize {
     *random_element(&min_idxs, |_| true).unwrap()
 }
 
+/// selects randomly from the set of indicies of max value elements
 pub fn max_idx(vs: &Vec<f64>) -> usize {
     assert_eq!(vs.is_empty(), false);
     let max = vs
@@ -37,6 +40,7 @@ pub fn max_idx(vs: &Vec<f64>) -> usize {
     *random_element(&max_idxs, |_| true).unwrap()
 }
 
+/// random_element selects a random element satisfying the predicate
 pub fn random_element<T, F>(vs: &Vec<T>, p: F) -> Option<&T>
 where
     F: Fn(&T) -> bool,
