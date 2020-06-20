@@ -1,20 +1,36 @@
+//! Defines how to pick from the alternative expansions for a nonterminal node and
+//! whether to continue following the current strategy
+//!
+//! ## Example
+//!
+//! ```
+//! use grammar_fuzzer::{GrowthStrategy, RandomStrategy, CloseStrategy, Strategy};
+//!
+//! let expansion = GrowthStrategy::new(0, 1000);
+//! let random = RandomStrategy::new(40, 8000);
+//! let close = CloseStrategy::new();
+//! let strategies: Vec<&dyn Strategy<()>> = vec![&expansion, &random, &close];
+//! ```
+//!
 use super::derivation_tree::Node;
 use super::grammar::{Alternatives, Grammar};
 use super::shared::{max_idx, min_idx};
 use rand::Rng;
 
+/// Selects an expansion-string based on the alternatives defined in the grammar for the nonterminal symbol
 pub trait Strategy<T> {
-    /// cont defines wheather to continue expanding the derivation tree following the current strategy
+    /// Defines wheather to continue expanding the derivation tree following the current strategy
     /// dt_root: is the root node of the derivation-tree
     /// num_steps: is how many times the derivation tree was expanded following the current strategy
     fn cont(&self, dt_root: &Node, num_steps: usize) -> bool;
 
-    /// choose selects an expansion-string for a given nonterminal node
+    /// Selects an expansion-string for a given nonterminal node
     fn choose(&self, grammar: &Grammar<T>, node: &Node) -> Option<String>;
 }
 
 // -------------------------------- Random ------------------------------------
 
+/// Randomly picks an expansion from the set of alternative expansions defined for a nonterminal in the grammar
 pub struct RandomStrategy {
     nonterminals_threshold: usize,
     max_steps: usize,
@@ -30,13 +46,13 @@ impl RandomStrategy {
 }
 
 impl<T> Strategy<T> for RandomStrategy {
-    /// continue until reaching the expected number of nonterminal nodes or passing the expansions limit
+    /// Continue until reaching the expected number of nonterminal nodes or passing the expansions limit
     fn cont(&self, dt_root: &Node, num_steps: usize) -> bool {
         dt_root.num_possible_expansions() < self.nonterminals_threshold
             && num_steps < self.max_steps
     }
 
-    /// choose a random expansion
+    /// Choose a random expansion
     fn choose(&self, grammar: &Grammar<T>, node: &Node) -> Option<String> {
         match node {
             Node::N(symbol) => {
@@ -52,6 +68,7 @@ impl<T> Strategy<T> for RandomStrategy {
 
 // -------------------------------- Growth ------------------------------------
 
+/// Picks randomly from the set of expansions that maximize the `costs`
 pub struct GrowthStrategy {
     nonterminals_threshold: usize,
     max_steps: usize,
@@ -67,13 +84,13 @@ impl GrowthStrategy {
 }
 
 impl<T> Strategy<T> for GrowthStrategy {
-    /// continue until reaching the expected number of nonterminal nodes or passing the expansions limit
+    /// Continue until reaching the expected number of nonterminal nodes or passing the expansions limit
     fn cont(&self, dt_root: &Node, num_steps: usize) -> bool {
         dt_root.num_possible_expansions() < self.nonterminals_threshold
             && num_steps < self.max_steps
     }
 
-    /// choose an expansion that maximizes the cost
+    /// Choose an expansion that maximizes the cost
     fn choose(&self, grammar: &Grammar<T>, node: &Node) -> Option<String> {
         match node {
             Node::N(symbol) => {
@@ -90,6 +107,7 @@ impl<T> Strategy<T> for GrowthStrategy {
 
 // -------------------------------- Close -------------------------------------
 
+/// Picks randomly from the set of expansions that minimize the `costs`
 pub struct CloseStrategy {}
 
 impl CloseStrategy {
@@ -99,12 +117,12 @@ impl CloseStrategy {
 }
 
 impl<T> Strategy<T> for CloseStrategy {
-    /// continue until all the nodes have been expanded
+    /// Continue until all the nodes have been expanded
     fn cont(&self, _dt_root: &Node, _num_steps: usize) -> bool {
         true
     }
 
-    /// choose an expansion that minimizes the cost
+    /// Choose an expansion that minimizes the cost
     fn choose(&self, grammar: &Grammar<T>, node: &Node) -> Option<String> {
         match node {
             Node::N(symbol) => {
@@ -127,4 +145,147 @@ fn costs<T>(grammar: &Grammar<T>, sym: &str, expansions: &Alternatives<T>) -> Ve
         .iter()
         .map(|expansion| grammar.expansion_cost(expansion, &seen))
         .collect()
+}
+
+#[cfg(test)]
+mod strategy_cont_tests {
+    use super::*;
+    use crate::derivation_tree::{
+        Children,
+        Node::{EN, N},
+    };
+    use std::cell::RefCell;
+
+    fn sample_derivation_tree(num_nonterminals: usize) -> Node {
+        if num_nonterminals > 1 {
+            EN(
+                String::from("<int>"),
+                Children {
+                    roots: vec![
+                        RefCell::new(sample_derivation_tree(num_nonterminals - 1)),
+                        RefCell::new(N(String::from("<digit>"))),
+                    ],
+                },
+            )
+        } else {
+            N(String::from("<digit>"))
+        }
+    }
+
+    #[test]
+    fn test_random_strategy_cont() {
+        let nonterminals_threshold = 10;
+        let max_steps = 10;
+        let below_max_steps = max_steps - 1;
+        let below_nonterminal_threshold = sample_derivation_tree(nonterminals_threshold - 1);
+        let at_nonterminal_threshold = sample_derivation_tree(nonterminals_threshold);
+        let strategy: &dyn Strategy<()> = &RandomStrategy::new(nonterminals_threshold, max_steps);
+
+        assert_eq!(
+            strategy.cont(&below_nonterminal_threshold, below_max_steps),
+            true
+        );
+        assert_eq!(
+            strategy.cont(&below_nonterminal_threshold, max_steps),
+            false
+        );
+        assert_eq!(
+            strategy.cont(&at_nonterminal_threshold, below_max_steps),
+            false
+        );
+    }
+
+    #[test]
+    fn test_growth_strategy_cont() {
+        let nonterminals_threshold = 10;
+        let max_steps = 10;
+        let below_max_steps = max_steps - 1;
+        let below_nonterminal_threshold = sample_derivation_tree(nonterminals_threshold - 1);
+        let at_nonterminal_threshold = sample_derivation_tree(nonterminals_threshold);
+        let strategy: &dyn Strategy<()> = &GrowthStrategy::new(nonterminals_threshold, max_steps);
+
+        assert_eq!(
+            strategy.cont(&below_nonterminal_threshold, below_max_steps),
+            true
+        );
+        assert_eq!(
+            strategy.cont(&below_nonterminal_threshold, max_steps),
+            false
+        );
+        assert_eq!(
+            strategy.cont(&at_nonterminal_threshold, below_max_steps),
+            false
+        );
+    }
+
+    #[test]
+    fn test_close_strategy_cont() {
+        let ten_nonterminal_nodes = sample_derivation_tree(10);
+        let strategy: &dyn Strategy<()> = &CloseStrategy::new();
+
+        assert_eq!(strategy.cont(&ten_nonterminal_nodes, 9), true);
+    }
+}
+
+#[cfg(test)]
+mod strategy_choose_tests {
+    use super::*;
+    use crate::derivation_tree::Node;
+    use std::collections::HashMap;
+
+    fn sample_grammar() -> Grammar<()> {
+        let expansions: HashMap<_, _> = [
+            ("<int>", vec!["<int><digit>", "<digit>"]),
+            (
+                "<digit>",
+                vec!["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
+            ),
+        ]
+        .iter()
+        .cloned()
+        .collect();
+
+        Grammar::from(expansions)
+    }
+
+    #[test]
+    fn test_random_strategy_choose() {
+        let nonterminals_threshold = 10;
+        let max_steps = 10;
+        let strategy: &dyn Strategy<()> = &GrowthStrategy::new(nonterminals_threshold, max_steps);
+        let grammar = sample_grammar();
+        let derivation_tree = Node::N(String::from("<int>"));
+        let expected_expansions = vec![
+            Some(String::from("<int><digit>")),
+            Some(String::from("<digit>")),
+        ];
+        assert_eq!(
+            expected_expansions.contains(&strategy.choose(&grammar, &derivation_tree)),
+            true
+        );
+    }
+
+    #[test]
+    fn test_growth_strategy_choose() {
+        let nonterminals_threshold = 10;
+        let max_steps = 10;
+        let strategy: &dyn Strategy<()> = &GrowthStrategy::new(nonterminals_threshold, max_steps);
+        let grammar = sample_grammar();
+        let derivation_tree = Node::N(String::from("<int>"));
+        assert_eq!(
+            strategy.choose(&grammar, &derivation_tree),
+            Some(String::from("<int><digit>"))
+        );
+    }
+
+    #[test]
+    fn test_close_strategy_choose() {
+        let strategy: &dyn Strategy<()> = &CloseStrategy::new();
+        let grammar = sample_grammar();
+        let derivation_tree = Node::N(String::from("<int>"));
+        assert_eq!(
+            strategy.choose(&grammar, &derivation_tree),
+            Some(String::from("<digit>"))
+        );
+    }
 }
