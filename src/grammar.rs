@@ -5,7 +5,7 @@
 //! ```
 //! use grammar_fuzzer::Grammar;
 //! use std::collections::HashMap;
-//! 
+//!
 //! let expansios: HashMap<_, _> = [
 //!     ("<list>", vec!["[<values>]"]),
 //!     ("<values>", vec!["<values>, <int>", "<int>"]),
@@ -19,7 +19,7 @@
 //! .cloned()
 //! .collect();
 //!
-//! Grammar::from(expansios);
+//! Grammar::from(&expansios);
 //! ```
 
 use super::parser::{self, Token};
@@ -79,8 +79,8 @@ impl<T> Deref for Grammar<T> {
     }
 }
 
-impl From<HashMap<&str, Vec<&str>>> for Grammar<()> {
-    fn from(input: HashMap<&str, Vec<&str>>) -> Self {
+impl From<&HashMap<&str, Vec<&str>>> for Grammar<()> {
+    fn from(input: &HashMap<&str, Vec<&str>>) -> Self {
         let expansions = input
             .iter()
             .map(|(symbol, expansions)| {
@@ -90,6 +90,28 @@ impl From<HashMap<&str, Vec<&str>>> for Grammar<()> {
                         .iter()
                         .map(|exp| Expansion {
                             string: String::from(*exp),
+                            opts: None,
+                        })
+                        .collect(),
+                )
+            })
+            .collect();
+
+        Grammar::new(expansions)
+    }
+}
+
+impl From<&HashMap<String, Vec<String>>> for Grammar<()> {
+    fn from(input: &HashMap<String, Vec<String>>) -> Self {
+        let expansions = input
+            .iter()
+            .map(|(symbol, expansions)| {
+                (
+                    symbol.clone(),
+                    expansions
+                        .iter()
+                        .map(|exp| Expansion {
+                            string: exp.clone(),
                             opts: None,
                         })
                         .collect(),
@@ -222,7 +244,7 @@ mod tests {
         .iter()
         .cloned()
         .collect();
-        Grammar::from(expansios)
+        Grammar::from(&expansios)
     }
 
     fn invalid_grammar() -> Grammar<()> {
@@ -238,7 +260,20 @@ mod tests {
         .iter()
         .cloned()
         .collect();
-        Grammar::from(expansios)
+        Grammar::from(&expansios)
+    }
+
+    #[test]
+    fn test_grammar_from_string_map() {
+        let expansios: HashMap<String, Vec<String>> = [(
+            String::from("<digit>"),
+            vec![String::from("0"), String::from("1")],
+        )]
+        .iter()
+        .cloned()
+        .collect();
+
+        Grammar::from(&expansios);
     }
 
     #[test]

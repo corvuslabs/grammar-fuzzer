@@ -31,7 +31,7 @@
 //!     .cloned()
 //!     .collect();
 //!
-//!     Grammar::from(expansios)
+//!     Grammar::from(&expansios)
 //! }
 //!
 //! fn main() {

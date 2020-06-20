@@ -18,7 +18,7 @@
 //!     .iter()
 //!     .cloned()
 //!     .collect();
-//! let grammar = Grammar::from(expansios);
+//! let grammar = Grammar::from(&expansios);
 //! assert_eq!(grammar.is_valid_grammar(Some("<string>")), true);
 //! // Fuzzer
 //! let fuzzer = GrammarFuzzer::new(grammar, &strategies);
