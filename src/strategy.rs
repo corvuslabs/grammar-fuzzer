@@ -245,7 +245,7 @@ mod strategy_choose_tests {
         .cloned()
         .collect();
 
-        Grammar::from(expansions)
+        Grammar::from(&expansions)
     }
 
     #[test]

@@ -16,7 +16,7 @@
 //! .cloned()
 //! .collect();
 //!
-//! let ebnf_grammar = Grammar::from(ebnf_grammar);
+//! let ebnf_grammar = Grammar::from(&ebnf_grammar);
 //!
 //! let bnf_grammar = ebnf_to_bnf(&ebnf_grammar);
 //! ```
@@ -185,7 +185,7 @@ mod tests {
         .cloned()
         .collect();
 
-        let ebnf_grammar = Grammar::from(ebnf_grammar);
+        let ebnf_grammar = Grammar::from(&ebnf_grammar);
 
         let expected_bnf_grammar: HashMap<&str, Vec<&str>> = [
             ("<list>", vec!["[<symbol-3><string>]"]),
@@ -202,7 +202,7 @@ mod tests {
         .cloned()
         .collect();
 
-        let expected_bnf_grammar = Grammar::from(expected_bnf_grammar);
+        let expected_bnf_grammar = Grammar::from(&expected_bnf_grammar);
 
         assert_eq!(ebnf_to_bnf(&ebnf_grammar), expected_bnf_grammar);
     }
